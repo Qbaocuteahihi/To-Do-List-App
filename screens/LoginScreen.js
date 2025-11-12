@@ -35,7 +35,7 @@ export default function LoginScreen() {
       if (user.email === adminEmail) {
         navigation.replace("AdminScreen"); // chuyển sang admin
       } else {
-        navigation.replace("MainTabs"); // sang giao diện người dùng
+        navigation.replace("Home"); // sang giao diện người dùng
       }
     } catch (error) {
       Alert.alert("Login Failed", error.message);

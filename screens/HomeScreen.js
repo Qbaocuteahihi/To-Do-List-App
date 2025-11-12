@@ -1,174 +1,135 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
-  SafeAreaView,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../firebaseConfig";
+import React, { useEffect } from "react";
+import { View, FlatList, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchExpenses, deleteExpense } from "../slices/expensesSlice";
+import { useNavigation } from "@react-navigation/native";
+import ExpenseChart from "../components/ExpenseChart";
+import CategoryChart from "./CategoryChart";
 
-export default function HomeScreen({ navigation }) {
-  const [products, setProducts] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filtered, setFiltered] = useState([]);
+export default function HomeScreen() {
+  const dispatch = useDispatch();
+  const navigation = useNavigation();
+  const expenses = useSelector(state => state.expenses.items);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "products"));
-        const list = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setProducts(list);
-        setFiltered(list);
-      } catch (error) {
-        console.error("❌ Lỗi khi lấy sản phẩm:", error);
-      }
-    };
-
-    fetchProducts();
+    dispatch(fetchExpenses());
   }, []);
 
-  // 🔍 Lọc sản phẩm theo tên
-  const handleSearch = (text) => {
-    setSearchQuery(text);
-    if (text.trim() === "") setFiltered(products);
-    else {
-      const lower = text.toLowerCase();
-      const result = products.filter((p) =>
-        p.name.toLowerCase().includes(lower)
-      );
-      setFiltered(result);
-    }
+  const handleDelete = (id) => {
+    Alert.alert(
+      "Delete Expense",
+      "Are you sure you want to delete this expense?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", onPress: () => dispatch(deleteExpense(id)) }
+      ]
+    );
   };
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate("ProductDetailScreen", { product: item })}
-    >
-      <Image source={{ uri: item.image }} style={styles.image} />
-      <View style={styles.infoContainer}>
-        <Text style={styles.name} numberOfLines={2}>
-          {item.name}
-        </Text>
-        <Text style={styles.price}>{item.price.toLocaleString()} đ</Text>
-      </View>
-    </TouchableOpacity>
-  );
-
   return (
-    <SafeAreaView style={styles.container}>
-      {/* ====== Thanh navbar ====== */}
-      <View style={styles.navbar}>
-        <Text style={styles.logo}>📱 SmartShop</Text>
-        <TouchableOpacity onPress={() => navigation.navigate("Cart")}>
-          <Ionicons name="cart-outline" size={26} color="#fff" />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => navigation.navigate("AddExpense")}
+      >
+        <Text style={styles.addButtonText}>Add Expense</Text>
+      </TouchableOpacity>
 
-      {/* ====== Thanh tìm kiếm ====== */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#555" style={{ marginRight: 8 }} />
-        <TextInput
-          placeholder="Tìm kiếm sản phẩm..."
-          value={searchQuery}
-          onChangeText={handleSearch}
-          style={styles.searchInput}
-          placeholderTextColor="#777"
+      <ExpenseChart expenses={expenses} />
+      <CategoryChart expenses={expenses} />
+
+      {expenses.length === 0 ? (
+        <Text style={styles.noDataText}>No expenses yet.</Text>
+      ) : (
+        <FlatList
+          data={expenses}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={styles.expenseItem}
+              onPress={() => navigation.navigate("EditExpense", { expense: item })}
+            >
+              <View style={styles.expenseHeader}>
+                <Text style={styles.expenseTitle}>{item.title}</Text>
+                <TouchableOpacity onPress={() => handleDelete(item.id)}>
+                  <Text style={styles.deleteText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.expenseCategory}>{item.category}</Text>
+              <Text style={styles.expenseAmount}>{item.amount.toLocaleString()} VND</Text>
+              <Text style={styles.expenseDate}>
+                {item.date ? new Date(item.date).toLocaleDateString() : ""}
+              </Text>
+            </TouchableOpacity>
+          )}
         />
-      </View>
-
-      {/* ====== Danh sách sản phẩm ====== */}
-      <FlatList
-        data={filtered}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 80 }}
-      />
-    </SafeAreaView>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fbff",
+    padding: 20,
+    backgroundColor: "#f8fafc",
   },
-  navbar: {
+  addButton: {
+    backgroundColor: "#38bdf8",
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  addButtonText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  noDataText: {
+    textAlign: "center",
+    color: "gray",
+    fontSize: 16,
+    marginTop: 50,
+  },
+  expenseItem: {
+    backgroundColor: "#fff",
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  expenseHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#0077b6",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
   },
-  logo: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    margin: 10,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  searchInput: {
-    flex: 1,
+  expenseTitle: {
     fontSize: 16,
-    color: "#333",
-  },
-  card: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    margin: 6,
-    padding: 10,
-    alignItems: "center",
-    shadowColor: "#0077b6",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderColor: "#0077b6",
-    borderWidth: 1,
-  },
-  image: {
-    width: 120,
-    height: 120,
-    borderRadius: 10,
-  },
-  infoContainer: {
-    alignItems: "center",
-    marginTop: 8,
-  },
-  name: {
-    fontSize: 15,
-    fontWeight: "500",
-    textAlign: "center",
-    color: "#0077b6",
-  },
-  price: {
-    color: "#0096c7",
     fontWeight: "bold",
-    marginTop: 4,
+    color: "#111827",
+  },
+  deleteText: {
+    color: "red",
+    fontSize: 12,
+  },
+  expenseCategory: {
     fontSize: 14,
+    color: "#6b7280",
+    marginTop: 4,
+  },
+  expenseAmount: {
+    fontSize: 14,
+    color: "#2563eb",
+    marginTop: 4,
+  },
+  expenseDate: {
+    fontSize: 12,
+    color: "gray",
+    marginTop: 2,
   },
 });
